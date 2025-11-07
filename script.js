@@ -1,79 +1,89 @@
 document.addEventListener('DOMContentLoaded', () => {
 
-    // URL DE NODO WEBHOOK EN N8N
-    const N8N_WEBHOOK_URL = "https://paoortiz0311.app.n8n.cloud/webhook/2b9c4088-7661-4e69-8aa7-b1e92945b1fb";
+  // URL DEL WEBHOOK DE N8N (usa tu URL real)
+  const N8N_WEBHOOK_URL = "https://cesargarcia12.app.n8n.cloud/webhook/ad21e2c9-ad31-4b84-9277-7056c8dccafc";
 
-    // Referencias a los elementos del DOM
-    const btnCalcular = document.getElementById('btnCalcular');
-    const textoOperacion = document.getElementById('textoOperacion');
-    
-    // Alertas de resultado y error
-    const divResultado = document.getElementById('divResultado');
-    const resultadoTexto = document.getElementById('resultadoTexto');
-    const divError = document.getElementById('divError');
-    const errorTexto = document.getElementById('errorTexto');
+  // Referencias a los elementos del DOM
+  const btnCalcular = document.getElementById('btnCalcular');
+  const textoOperacion = document.getElementById('textoOperacion');
 
-    const textoOriginalBtn = 'Calcular <i class="bi bi-send ms-1"></i>';
+  // Alertas de resultado y error
+  const divResultado = document.getElementById('divResultado');
+  const resultadoTexto = document.getElementById('resultadoTexto');
+  const divError = document.getElementById('divError');
+  const errorTexto = document.getElementById('errorTexto');
 
-    btnCalcular.addEventListener('click', () => {
-        const query = textoOperacion.value;
+  const textoOriginalBtn = 'Calcular <i class="bi bi-send ms-1"></i>';
 
-        if (query.trim() === "") {
-            alert("Por favor, escribe una operación.");
-            return;
-        }
+  // === Evento principal ===
+  btnCalcular.addEventListener('click', () => {
+    const query = textoOperacion.value.trim();
 
-        // --- Estado de Carga ---
-        // Ocultar alertas anteriores
-        divResultado.style.display = 'none';
-        divError.style.display = 'none';
-        
-        // Deshabilitar botón y mostrar spinner *dentro* del botón
-        btnCalcular.disabled = true;
-        btnCalcular.innerHTML = `
-            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-            Calculando...
-        `;
+    if (query === "") {
+      alert("Por favor, escribe una operación.");
+      return;
+    }
 
-        // 2. Enviar la solicitud a n8n
-        fetch(N8N_WEBHOOK_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                textoUsuario: query
-            })
-        })
-        .then(response => {
-            if (!response.ok) {
-                // Si la respuesta del servidor no es 200 OK, la tratamos como un error
-                throw new Error(`Error de red: ${response.statusText}`);
-            }
-            return response.json(); // Intenta parsear la respuesta como JSON
-        })
-        .then(data => {
-            // --- Estado de Éxito ---
-            // Restaurar botón
-            btnCalcular.disabled = false;
-            btnCalcular.innerHTML = textoOriginalBtn;
+    // --- Estado de carga ---
+    divResultado.style.display = 'none';
+    divError.style.display = 'none';
 
-            // 3. Mostrar el resultado que n8n nos devuelve
-            resultadoTexto.innerText = data.respuestaCalculada;
-            divResultado.style.display = 'block';
-        })
-        .catch(error => {
-            // --- Estado de Error ---
-            // Restaurar botón
-            btnCalcular.disabled = false;
-            btnCalcular.innerHTML = textoOriginalBtn;
+    btnCalcular.disabled = true;
+    btnCalcular.innerHTML = `
+      <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+      Calculando...
+    `;
 
-            // Manejo de errores (JSON inválido o error de red)
-            console.error('Error:', error);
-            errorTexto.innerText = 'Hubo un error al procesar la solicitud. Revisa la consola para más detalles.';
-            divError.style.display = 'block';
-        });
+    // === Enviar solicitud a n8n ===
+    fetch(N8N_WEBHOOK_URL + '?wait=true', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ textoUsuario: query })
+    })
+    .then(async (response) => {
+      if (!response.ok) {
+        throw new Error('Error HTTP ${response.status}: ${response.statusText}');
+      }
+
+      // Leer como texto para evitar el "Unexpected end of JSON input"
+      const raw = await response.text();
+
+      if (!raw) {
+        // Si la respuesta está vacía
+        return { respuestaCalculada: 'Sin respuesta del servidor (cuerpo vacío).' };
+      }
+
+      // Intentar parsear el JSON
+      try {
+        return JSON.parse(raw);
+      } catch (e) {
+        console.warn('Respuesta no JSON, contenido:', raw);
+        return { respuestaCalculada: raw };
+      }
+    })
+    .then((data) => {
+      // --- Estado de Éxito ---
+      btnCalcular.disabled = false;
+      btnCalcular.innerHTML = textoOriginalBtn;
+
+      // Mostrar el resultado (ajusta según el formato que devuelva tu n8n)
+      resultadoTexto.innerText = data.respuestaCalculada 
+                              ?? data.result 
+                              ?? JSON.stringify(data);
+
+      divResultado.style.display = 'block';
+    })
+    .catch((error) => {
+      // --- Estado de Error ---
+      btnCalcular.disabled = false;
+      btnCalcular.innerHTML = textoOriginalBtn;
+
+      console.error('Error al procesar:', error);
+      errorTexto.innerText = 'Hubo un error al procesar la solicitud. Revisa la consola para más detalles.';
+      divError.style.display = 'block';
     });
+  });
 
 });
-
