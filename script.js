@@ -1,90 +1,84 @@
 document.addEventListener('DOMContentLoaded', () => {
+  const N8N_WEBHOOK_URL = 'https://paoortiz0311.app.n8n.cloud/webhook/2b9c4088-7661-4e69-8aa7-b1e92945b1fb?wait=true';
 
-  // URL DEL WEBHOOK DE N8N (usa tu URL real)
-  const N8N_WEBHOOK_URL = "https://paoortiz0311.app.n8n.cloud/webhook/2b9c4088-7661-4e69-8aa7-b1e92945b1fb";
-
-  // Referencias a los elementos del DOM
+  // DOM
   const btnCalcular = document.getElementById('btnCalcular');
   const textoOperacion = document.getElementById('textoOperacion');
-
-  // Alertas de resultado y error
   const divResultado = document.getElementById('divResultado');
   const resultadoTexto = document.getElementById('resultadoTexto');
   const divError = document.getElementById('divError');
   const errorTexto = document.getElementById('errorTexto');
 
-  const textoOriginalBtn = 'Calcular <i class="bi bi-send ms-1"></i>';
+  // Guarda el label original del botón tal como está en el HTML ("Realizar")
+  const btnLabelOriginal = btnCalcular.innerHTML;
 
-  // === Evento principal ===
-  btnCalcular.addEventListener('click', () => {
-    const query = textoOperacion.value.trim();
+  function show(el){ el.classList.remove('d-none'); }
+  function hide(el){ el.classList.add('d-none'); }
 
-    if (query === "") {
-      alert("Por favor, escribe una operación.");
-      return;
-    }
-
-    // --- Estado de carga ---
-    divResultado.style.display = 'none';
-    divError.style.display = 'none';
-
+  async function calcular(query){
+    hide(divResultado);
+    hide(divError);
     btnCalcular.disabled = true;
     btnCalcular.innerHTML = `
       <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
       Calculando...
     `;
 
-    // === Enviar solicitud a n8n ===
-    fetch(N8N_WEBHOOK_URL + '?wait=true', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ textoUsuario: query })
-    })
-    .then(async (response) => {
-      if (!response.ok) {
-        throw new Error('Error HTTP ${response.status}: ${response.statusText}');
+    try {
+      const res = await fetch(N8N_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ textoUsuario: query })
+      });
+
+      if (!res.ok) {
+        const rawErr = await res.text().catch(()=>'');
+        throw new Error(`HTTP ${res.status} ${res.statusText} -> ${rawErr}`);
       }
 
-      // Leer como texto para evitar el "Unexpected end of JSON input"
-      const raw = await response.text();
-
+      const raw = await res.text();           // siempre como texto
       if (!raw) {
-        // Si la respuesta está vacía
-        return { respuestaCalculada: 'Sin respuesta del servidor (cuerpo vacío).' };
+        resultadoTexto.textContent = 'Sin respuesta del servidor.';
+        show(divResultado);
+        return;
       }
 
-      // Intentar parsear el JSON
-      try {
-        return JSON.parse(raw);
-      } catch (e) {
-        console.warn('Respuesta no JSON, contenido:', raw);
-        return { respuestaCalculada: raw };
-      }
-    })
-    .then((data) => {
-      // --- Estado de Éxito ---
+      // intenta JSON; si no, muestra texto plano
+      let data;
+      try { data = JSON.parse(raw); } catch { data = raw; }
+
+      const respuesta =
+        (typeof data === 'string') ? data :
+        data.respuestaCalculada ??
+        data.resultado ??
+        data.result ??
+        JSON.stringify(data);
+
+      resultadoTexto.textContent = respuesta;
+      show(divResultado);
+
+    } catch (err) {
+      console.error(err);
+      errorTexto.textContent = String(err.message || err);
+      show(divError);
+    } finally {
       btnCalcular.disabled = false;
-      btnCalcular.innerHTML = textoOriginalBtn;
+      btnCalcular.innerHTML = btnLabelOriginal;
+    }
+  }
 
-      // Mostrar el resultado (ajusta según el formato que devuelva tu n8n)
-      resultadoTexto.innerText = data.respuestaCalculada 
-                              ?? data.result 
-                              ?? JSON.stringify(data);
-
-      divResultado.style.display = 'block';
-    })
-    .catch((error) => {
-      // --- Estado de Error ---
-      btnCalcular.disabled = false;
-      btnCalcular.innerHTML = textoOriginalBtn;
-
-      console.error('Error al procesar:', error);
-      errorTexto.innerText = 'Hubo un error al procesar la solicitud. Revisa la consola para más detalles.';
-      divError.style.display = 'block';
-    });
+  btnCalcular.addEventListener('click', () => {
+    const q = textoOperacion.value.trim();
+    if (!q) { textoOperacion.focus(); return; }
+    calcular(q);
   });
 
-
+  // Enviar con Ctrl+Enter
+  textoOperacion.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      const q = textoOperacion.value.trim();
+      if (!q) return;
+      calcular(q);
+    }
+  });
 });
