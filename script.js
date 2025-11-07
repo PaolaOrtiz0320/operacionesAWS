@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
 
   // URL DEL WEBHOOK DE N8N (usa tu URL real)
-  const N8N_WEBHOOK_URL = "https://cesargarcia12.app.n8n.cloud/webhook/ad21e2c9-ad31-4b84-9277-7056c8dccafc";
+  const N8N_WEBHOOK_URL = "https://paoortiz0311.app.n8n.cloud/webhook/2b9c4088-7661-4e69-8aa7-b1e92945b1fb";
 
   // Referencias a los elementos del DOM
   const btnCalcular = document.getElementById('btnCalcular');
@@ -85,5 +85,6 @@ document.addEventListener('DOMContentLoaded', () => {
       divError.style.display = 'block';
     });
   });
+
 
 });
