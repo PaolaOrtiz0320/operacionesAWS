@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-  const N8N_WEBHOOK_URL = 'https://paoortiz0311.app.n8n.cloud/webhook/2b9c4088-7661-4e69-8aa7-b1e92945b1fb?wait=true';
+  const N8N_WEBHOOK_URL = 'https://paolaortiz.app.n8n.cloud/webhook/2b9c4088-7661-4e69-8aa7-b1e92945b1fb';
 
   // DOM
   const btnCalcular = document.getElementById('btnCalcular');
@@ -82,3 +82,4 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
+
