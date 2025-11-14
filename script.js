@@ -1,23 +1,40 @@
+// main.js
 document.addEventListener('DOMContentLoaded', () => {
-  const N8N_WEBHOOK_URL = 'https://paolaortiz.app.n8n.cloud/webhook/2b9c4088-7661-4e69-8aa7-b1e92945b1fb';
+  // URL del Webhook de n8n
+  const N8N_WEBHOOK_URL = 'https://paoortiz0311.app.n8n.cloud/webhook/2b9c4088-7661-4e69-8aa7-b1e92945b1fb';
 
-  // DOM
-  const btnCalcular = document.getElementById('btnCalcular');
-  const textoOperacion = document.getElementById('textoOperacion');
-  const divResultado = document.getElementById('divResultado');
-  const resultadoTexto = document.getElementById('resultadoTexto');
-  const divError = document.getElementById('divError');
-  const errorTexto = document.getElementById('errorTexto');
+  // Referencias al DOM
+  const btnCalcular     = document.getElementById('btnCalcular');
+  const textoOperacion  = document.getElementById('textoOperacion');
 
-  // Guarda el label original del botón tal como está en el HTML ("Realizar")
-  const btnLabelOriginal = btnCalcular.innerHTML;
+  const divResultado    = document.getElementById('divResultado');
+  const resultadoTexto  = document.getElementById('resultadoTexto');
+  const divError        = document.getElementById('divError');
+  const errorTexto      = document.getElementById('errorTexto');
 
-  function show(el){ el.classList.remove('d-none'); }
-  function hide(el){ el.classList.add('d-none'); }
+  const textoOriginalBtn = 'Calcular <i class="bi bi-send ms-1"></i>';
 
-  async function calcular(query){
-    hide(divResultado);
-    hide(divError);
+  // Enviar con Ctrl+Enter
+  textoOperacion.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      btnCalcular.click();
+    }
+  });
+
+  btnCalcular.addEventListener('click', async () => {
+    // Sanitiza entrada: convierte × o x por * y ÷ por /
+    let query = textoOperacion.value.trim()
+      .replace(/[×x]/g, '*')
+      .replace(/÷/g, '/');
+
+    if (!query) {
+      alert('Por favor, escribe una operación.');
+      return;
+    }
+
+    // Estado de carga
+    divResultado.style.display = 'none';
+    divError.style.display = 'none';
     btnCalcular.disabled = true;
     btnCalcular.innerHTML = `
       <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
@@ -25,61 +42,48 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
 
     try {
-      const res = await fetch(N8N_WEBHOOK_URL, {
+      // Llamada a n8n (espera respuesta sincrónica)
+      const resp = await fetch(N8N_WEBHOOK_URL + '?wait=true', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ textoUsuario: query })
       });
 
-      if (!res.ok) {
-        const rawErr = await res.text().catch(()=>'');
-        throw new Error(`HTTP ${res.status} ${res.statusText} -> ${rawErr}`);
+      if (!resp.ok) {
+        throw new Error(`Error HTTP ${resp.status}: ${resp.statusText}`);
       }
 
-      const raw = await res.text();           // siempre como texto
+      // Leemos como texto (el Respond to Webhook devuelve texto plano o JSON)
+      const raw = await resp.text();
       if (!raw) {
-        resultadoTexto.textContent = 'Sin respuesta del servidor.';
-        show(divResultado);
-        return;
+        throw new Error('Sin respuesta del servidor (cuerpo vacío).');
       }
 
-      // intenta JSON; si no, muestra texto plano
+      // Intentamos parsear JSON; si no, usamos el texto tal cual
       let data;
-      try { data = JSON.parse(raw); } catch { data = raw; }
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        data = { respuestaCalculada: raw };
+      }
 
-      const respuesta =
-        (typeof data === 'string') ? data :
-        data.respuestaCalculada ??
-        data.resultado ??
-        data.result ??
-        JSON.stringify(data);
+      // Normaliza y muestra el resultado (sin “=”, sin espacios)
+      let val = String(
+        data.respuestaCalculada ?? data.result ?? raw
+      ).trim().replace(/^=/, '').replace(',', '.');
 
-      resultadoTexto.textContent = respuesta;
-      show(divResultado);
+      // Opcional: fija decimales visibles (p. ej., 8)
+      // val = Number(val).toFixed(8);
 
+      resultadoTexto.textContent = val;
+      divResultado.style.display = 'block';
     } catch (err) {
-      console.error(err);
-      errorTexto.textContent = String(err.message || err);
-      show(divError);
+      console.error('Error al procesar:', err);
+      errorTexto.textContent = err.message || 'Error desconocido';
+      divError.style.display = 'block';
     } finally {
       btnCalcular.disabled = false;
-      btnCalcular.innerHTML = btnLabelOriginal;
-    }
-  }
-
-  btnCalcular.addEventListener('click', () => {
-    const q = textoOperacion.value.trim();
-    if (!q) { textoOperacion.focus(); return; }
-    calcular(q);
-  });
-
-  // Enviar con Ctrl+Enter
-  textoOperacion.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-      const q = textoOperacion.value.trim();
-      if (!q) return;
-      calcular(q);
+      btnCalcular.innerHTML = textoOriginalBtn;
     }
   });
 });
-
